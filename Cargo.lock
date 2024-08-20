@@ -1310,6 +1310,7 @@ dependencies = [
  "arrow-array",
  "arrow-ipc",
  "arrow-schema",
+ "byteorder",
  "bytes",
  "criterion",
  "enum_dispatch",

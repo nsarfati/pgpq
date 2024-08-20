@@ -5,6 +5,7 @@ use arrow_schema::{DataType, Field, TimeUnit};
 use bytes::{BufMut, BytesMut};
 use enum_dispatch::enum_dispatch;
 use std::{any::type_name, convert::identity, sync::Arc};
+use byteorder::{WriteBytesExt, BigEndian};
 
 use crate::error::ErrorKind;
 use crate::pg_schema::{Column, PostgresType, TypeSize};
@@ -90,6 +91,30 @@ macro_rules! impl_encode {
         }
     };
 }
+
+macro_rules! impl_encode2 {
+    ($struct_name:ident, $field_size:expr, $transform:expr, $write:expr) => {
+        impl<'a> Encode for $struct_name<'a> {
+            fn encode(&self, row: usize, buf: &mut BytesMut) -> Result<(), ErrorKind> {
+                if self.arr.is_null(row) {
+                    buf.put_i32(-1)
+                } else {
+                    buf.put_i32($field_size as i32);
+                    let v = self.arr.value(row);
+                    let tv = $transform(v);
+                    $write(buf, &tv);
+                }
+                Ok(())
+            }
+            fn size_hint(&self) -> Result<usize, ErrorKind> {
+                let null_count = self.arr.null_count();
+                let item_count = self.arr.len();
+                Ok((item_count - null_count) * $field_size + item_count)
+            }
+        }
+    };
+}
+
 
 macro_rules! impl_encode_fallible {
     ($struct_name:ident, $field_size:expr, $transform:expr, $write:expr) => {
@@ -235,15 +260,64 @@ impl_encode!(
     BufMut::put_f64
 );
 
+fn encode_postgres_numeric(value: i128, precision: u8, scale: u8) -> Vec<u8> {
+    let mut buf = Vec::new();
+
+    // Calcular el valor absoluto del número y determinar el signo
+    let abs_value = value.abs();
+    let is_negative = value < 0;
+
+    // Convertir el valor en dígitos de base 10000
+    let mut digits = Vec::new();
+    let mut temp_value = abs_value;
+    while temp_value > 0 {
+        digits.push((temp_value % 10000) as u16);
+        temp_value /= 10000;
+    }
+
+    // Calcular el número de dígitos (ndigits) y el peso (weight)
+    let ndigits = digits.len() as i16;
+    let weight = if ndigits > 0 {
+        (ndigits - 1) as i16 - scale as i16 / 4
+    } else {
+        0
+    };
+
+    // Codificar el número de dígitos (ndigits)
+    buf.write_i16::<BigEndian>(ndigits).unwrap();
+
+    // Codificar el peso
+    buf.write_i16::<BigEndian>(weight).unwrap();
+
+    // Codificar la escala
+    buf.write_i16::<BigEndian>(scale as i16).unwrap();
+
+    // Codificar el signo
+    let sign = if is_negative { 0x4000 } else { 0x0000 };
+    buf.write_u16::<BigEndian>(sign).unwrap();
+
+    // Añadir ceros si es necesario para ajustar la longitud del array a un múltiplo de 4
+    while digits.len() % 4 != 0 {
+        digits.push(0);
+    }
+
+    // Codificar los dígitos en el orden correcto
+    for digit in digits.iter().rev() {
+        buf.write_u16::<BigEndian>(*digit).unwrap();
+    }
+
+    buf
+}
+
 #[derive(Debug)]
 pub struct Decimal128Encoder<'a> {
     arr: &'a arrow_array::Decimal128Array,
 }
-impl_encode!(
+impl_encode2!(
     Decimal128Encoder,
-    type_size_fixed(PostgresType::Numeric.size()),
-    identity,
-    BufMut::put_i128
+    16,  // El tamaño de NUMERIC no es fijo, pero este valor es un placeholder.
+    |v| encode_postgres_numeric(v, 38, 5),
+    |buf: &mut BytesMut, bytes: &[u8]| buf.extend_from_slice(bytes)
 );
 
 const PG_BASE_TIMESTAMP_OFFSET_US: i64 = 946_684_800_000_000; // microseconds between 2000-01-01 at midnight (Postgres's epoch) and 1970-01-01 (Arrow's / UNIX epoch)
