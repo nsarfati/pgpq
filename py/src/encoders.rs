@@ -243,6 +243,14 @@ impl_passthrough_encoder_builder!(Float64EncoderBuilder);
 
 #[pyclass(module = "pgpq._pgpq")]
 #[derive(Debug, Clone)]
+pub struct Decimal128EncoderBuilder {
+    field: Py<PyAny>,
+    inner: pgpq::encoders::EncoderBuilder,
+}
+impl_passthrough_encoder_builder!(Decimal128EncoderBuilder);
+
+#[pyclass(module = "pgpq._pgpq")]
+#[derive(Debug, Clone)]
 pub struct TimestampMicrosecondEncoderBuilder {
     field: Py<PyAny>,
     inner: pgpq::encoders::EncoderBuilder,
@@ -479,6 +487,7 @@ pub enum EncoderBuilder {
     Float16(Float16EncoderBuilder),
     Float32(Float32EncoderBuilder),
     Float64(Float64EncoderBuilder),
+    Decimal128(Decimal128EncoderBuilder),
     TimestampMicrosecond(TimestampMicrosecondEncoderBuilder),
     TimestampMillisecond(TimestampMillisecondEncoderBuilder),
     TimestampSecond(TimestampSecondEncoderBuilder),
@@ -511,6 +520,7 @@ impl crate::utils::PythonRepr for EncoderBuilder {
             EncoderBuilder::Float16(inner) => inner.py_repr(py),
             EncoderBuilder::Float32(inner) => inner.py_repr(py),
             EncoderBuilder::Float64(inner) => inner.py_repr(py),
+            EncoderBuilder::Decimal128(inner) => inner.py_repr(py),
             EncoderBuilder::TimestampMicrosecond(inner) => inner.py_repr(py),
             EncoderBuilder::TimestampMillisecond(inner) => inner.py_repr(py),
             EncoderBuilder::TimestampSecond(inner) => inner.py_repr(py),
@@ -606,6 +616,12 @@ impl EncoderBuilder {
             }
             pgpq::encoders::EncoderBuilder::Float64(_) => {
                 EncoderBuilder::Float64(Float64EncoderBuilder {
+                    field: py_field.to_object(py),
+                    inner,
+                })
+            }
+            pgpq::encoders::EncoderBuilder::Decimal128(_) => {
+                EncoderBuilder::Decimal128(Decimal128EncoderBuilder {
                     field: py_field.to_object(py),
                     inner,
                 })
@@ -793,6 +809,13 @@ impl From<pgpq::encoders::EncoderBuilder> for EncoderBuilder {
                     inner: value,
                 })
             }
+            pgpq::encoders::EncoderBuilder::Decimal128(inner) => {
+                let field = inner.field();
+                EncoderBuilder::Decimal128(Decimal128EncoderBuilder {
+                    field: field.to_pyarrow(py).unwrap(),
+                    inner: value,
+                })
+            }
             pgpq::encoders::EncoderBuilder::TimestampMicrosecond(inner) => {
                 let field = inner.field();
                 EncoderBuilder::TimestampMicrosecond(TimestampMicrosecondEncoderBuilder {
@@ -927,6 +950,7 @@ impl From<EncoderBuilder> for pgpq::encoders::EncoderBuilder {
             EncoderBuilder::Float16(inner) => inner.inner,
             EncoderBuilder::Float32(inner) => inner.inner,
             EncoderBuilder::Float64(inner) => inner.inner,
+            EncoderBuilder::Decimal128(inner) => inner.inner,
             EncoderBuilder::TimestampMicrosecond(inner) => inner.inner,
             EncoderBuilder::TimestampMillisecond(inner) => inner.inner,
             EncoderBuilder::TimestampSecond(inner) => inner.inner,
@@ -961,6 +985,7 @@ impl IntoPy<PyObject> for EncoderBuilder {
             EncoderBuilder::Float16(inner) => inner.into_py(py),
             EncoderBuilder::Float32(inner) => inner.into_py(py),
             EncoderBuilder::Float64(inner) => inner.into_py(py),
+            EncoderBuilder::Decimal128(inner) => inner.into_py(py),
             EncoderBuilder::TimestampMicrosecond(inner) => inner.into_py(py),
             EncoderBuilder::TimestampMillisecond(inner) => inner.into_py(py),
             EncoderBuilder::TimestampSecond(inner) => inner.into_py(py),

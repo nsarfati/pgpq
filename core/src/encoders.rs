@@ -41,6 +41,7 @@ pub enum Encoder<'a> {
     Float16(Float16Encoder<'a>),
     Float32(Float32Encoder<'a>),
     Float64(Float64Encoder<'a>),
+    Decimal128(Decimal128Encoder<'a>),
     TimestampMicrosecond(TimestampMicrosecondEncoder<'a>),
     TimestampMillisecond(TimestampMillisecondEncoder<'a>),
     TimestampSecond(TimestampSecondEncoder<'a>),
@@ -232,6 +233,17 @@ impl_encode!(
     type_size_fixed(PostgresType::Float8.size()),
     identity,
     BufMut::put_f64
+);
+
+#[derive(Debug)]
+pub struct Decimal128Encoder<'a> {
+    arr: &'a arrow_array::Decimal128Array,
+}
+impl_encode!(
+    Decimal128Encoder,
+    type_size_fixed(PostgresType::Numeric.size()),
+    identity,
+    BufMut::put_i128
 );
 
 const PG_BASE_TIMESTAMP_OFFSET_US: i64 = 946_684_800_000_000; // microseconds between 2000-01-01 at midnight (Postgres's epoch) and 1970-01-01 (Arrow's / UNIX epoch)
@@ -837,6 +849,19 @@ impl_encoder_builder_stateless!(
 );
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Decimal128EncoderBuilder {
+    field: Arc<Field>,
+}
+
+impl_encoder_builder_stateless!(
+    Decimal128EncoderBuilder,
+    Encoder::Decimal128,
+    Decimal128Encoder,
+    PostgresType::Numeric,
+    |dt: &DataType| matches!(dt, DataType::Decimal128(38, 5))
+);
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct TimestampMicrosecondEncoderBuilder {
     field: Arc<Field>,
 }
@@ -1175,6 +1200,7 @@ pub enum EncoderBuilder {
     Float16(Float16EncoderBuilder),
     Float32(Float32EncoderBuilder),
     Float64(Float64EncoderBuilder),
+    Decimal128(Decimal128EncoderBuilder),
     TimestampMicrosecond(TimestampMicrosecondEncoderBuilder),
     TimestampMillisecond(TimestampMillisecondEncoderBuilder),
     TimestampSecond(TimestampSecondEncoderBuilder),
@@ -1212,6 +1238,7 @@ impl EncoderBuilder {
             DataType::Float16 => Self::Float16(Float16EncoderBuilder { field }),
             DataType::Float32 => Self::Float32(Float32EncoderBuilder { field }),
             DataType::Float64 => Self::Float64(Float64EncoderBuilder { field }),
+            DataType::Decimal128(38, 5) => Self::Decimal128(Decimal128EncoderBuilder { field }),
             DataType::Timestamp(unit, _) => match unit {
                 TimeUnit::Nanosecond => {
                     return Err(ErrorKind::type_unsupported(

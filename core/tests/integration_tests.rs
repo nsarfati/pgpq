@@ -97,6 +97,11 @@ fn test_float64() {
 }
 
 #[test]
+fn test_numeric() {
+    run_test_case("numeric")
+}
+
+#[test]
 fn test_timestamp_us_notz() {
     run_test_case("timestamp_us_notz")
 }
@@ -229,6 +234,11 @@ fn test_float32_nullable() {
 #[test]
 fn test_float64_nullable() {
     run_test_case("float64_nullable")
+}
+
+#[test]
+fn test_numeric_nullable() {
+    run_test_case("numeric_nullable")
 }
 
 #[test]
@@ -367,6 +377,11 @@ fn test_list_float64() {
 }
 
 #[test]
+fn test_list_numeric() {
+    run_test_case("list_numeric")
+}
+
+#[test]
 fn test_list_timestamp_us_notz() {
     run_test_case("list_timestamp_us_notz")
 }
@@ -499,6 +514,11 @@ fn test_list_float32_nullable() {
 #[test]
 fn test_list_float64_nullable() {
     run_test_case("list_float64_nullable")
+}
+
+#[test]
+fn test_list_numeric_nullable() {
+    run_test_case("list_numeric_nullable")
 }
 
 #[test]
@@ -637,6 +657,11 @@ fn test_list_nullable_float64() {
 }
 
 #[test]
+fn test_list_nullable_numeric() {
+    run_test_case("list_nullable_numeric")
+}
+
+#[test]
 fn test_list_nullable_timestamp_us_notz() {
     run_test_case("list_nullable_timestamp_us_notz")
 }
@@ -769,6 +794,11 @@ fn test_list_nullable_float32_nullable() {
 #[test]
 fn test_list_nullable_float64_nullable() {
     run_test_case("list_nullable_float64_nullable")
+}
+
+#[test]
+fn test_list_nullable_numeric_nullable() {
+    run_test_case("list_nullable_numeric_nullable")
 }
 
 #[test]

@@ -3,6 +3,7 @@ from itertools import cycle, islice
 from math import floor
 from pathlib import Path
 from typing import Any, List
+from decimal import Decimal
 import pyarrow as pa
 
 
@@ -48,6 +49,7 @@ primitive_cols: list[tuple[pa.field, list[Any]]] = [
     (pa.field("int64", pa.int64()), [-1, 0, 1]),
     (pa.field("float32", pa.float32()), [-1, 0, 1, float("inf")]),
     (pa.field("float64", pa.float64()), [-1, 0, 1, float("inf")]),
+    (pa.field("numeric", pa.decimal128(38, 5)), [pa.decimal('123.45'), pa.decimal('666.666'), pa.decimal('-93.1')]),
     (pa.field("timestamp_us_notz", pa.timestamp("us", None)), [0, 1, timestamp_us]),
     (pa.field("timestamp_ms_notz", pa.timestamp("ms", None)), [0, 1, timestamp_ms]),
     (pa.field("timestamp_s_notz", pa.timestamp("s", None)), [0, 1, timestamp_s]),
