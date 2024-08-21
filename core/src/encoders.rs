@@ -5,7 +5,8 @@ use arrow_schema::{DataType, Field, TimeUnit};
 use bytes::{BufMut, BytesMut};
 use enum_dispatch::enum_dispatch;
 use std::{any::type_name, convert::identity, sync::Arc};
-use byteorder::{WriteBytesExt, BigEndian};
+use std::fs::File;
+use std::io::Write;
 
 use crate::error::ErrorKind;
 use crate::pg_schema::{Column, PostgresType, TypeSize};
@@ -260,50 +261,38 @@ impl_encode!(
     BufMut::put_f64
 );
 
-fn encode_postgres_numeric(value: i128, precision: u8, scale: u8) -> Vec<u8> {
+fn encode_postgres_numeric(valuex: i128, scale: u16) -> Vec<u8> {
+    let value: i128 = 987123899999;
     let mut buf = Vec::new();
 
-    // Calcular el valor absoluto del número y determinar el signo
-    let abs_value = value.abs();
-    let is_negative = value < 0;
+    let sign: i16 = if value.is_negative() { 0x4000 } else { 0x0000 };
 
-    // Convertir el valor en dígitos de base 10000
     let mut digits = Vec::new();
-    let mut temp_value = abs_value;
-    while temp_value > 0 {
-        digits.push((temp_value % 10000) as u16);
-        temp_value /= 10000;
+
+    let mut integer_part = value.abs() / 10_i128.pow(scale as u32);
+    while integer_part > 0 {
+        digits.insert(0, ((integer_part % 10000) as u16));
+        integer_part /= 10000;
     }
 
-    // Calcular el número de dígitos (ndigits) y el peso (weight)
-    let ndigits = digits.len() as i16;
-    let weight = if ndigits > 0 {
-        (ndigits - 1) as i16 - scale as i16 / 4
+    let weight= digits.len() - 1;
+
+    let mut decimal_part = value.abs() % 10_i128.pow(scale as u32);
+
+    if decimal_part < 10000 {
+        digits.push(decimal_part as u16);
     } else {
-        0
-    };
-
-    // Codificar el número de dígitos (ndigits)
-    buf.write_i16::<BigEndian>(ndigits).unwrap();
-
-    // Codificar el peso
-    buf.write_i16::<BigEndian>(weight).unwrap();
-
-    // Codificar la escala
-    buf.write_i16::<BigEndian>(scale as i16).unwrap();
-
-    // Codificar el signo
-    let sign = if is_negative { 0x4000 } else { 0x0000 };
-    buf.write_u16::<BigEndian>(sign).unwrap();
-
-    // Añadir ceros si es necesario para ajustar la longitud del array a un múltiplo de 4
-    while digits.len() % 4 != 0 {
-        digits.push(0);
+        digits.push((decimal_part / 10) as u16);
+        digits.push(((decimal_part % 10) * 1000) as u16);
     }
 
-    // Codificar los dígitos en el orden correcto
-    for digit in digits.iter().rev() {
-        buf.write_u16::<BigEndian>(*digit).unwrap();
+    buf.extend((digits.len() as u16).to_be_bytes());
+    buf.extend((weight as u16).to_be_bytes());
+    buf.extend(sign.to_be_bytes());
+    buf.extend(scale.to_be_bytes());
+
+    for digit in digits {
+        buf.extend(digit.to_be_bytes());
     }
 
     buf
@@ -315,8 +304,8 @@ pub struct Decimal128Encoder<'a> {
 }
 impl_encode2!(
     Decimal128Encoder,
-    16,  // El tamaño de NUMERIC no es fijo, pero este valor es un placeholder.
-    |v| encode_postgres_numeric(v, 38, 5),
+    0x0c, // TODO: Ver como obtener el len del resultado
+    |v| encode_postgres_numeric(v, 5),
     |buf: &mut BytesMut, bytes: &[u8]| buf.extend_from_slice(bytes)
 );
 
