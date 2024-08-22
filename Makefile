@@ -18,7 +18,7 @@ build-develop: .init
 
 test: build-develop
 	cargo test
-	./.venv/bin/python -m pytest
+	./.venv/bin/python -m pytest -s
 
 lint: build-develop
 	./.venv/bin/pre-commit run --all-files

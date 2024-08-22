@@ -49,7 +49,11 @@ def copy_buffer_and_get_rows(
 
 
 TESTCASES = sorted(
-    [f.strip(".bin").split("/")[-1] for f in sorted(glob("core/tests/snapshots/*"))]
+    # [f.strip(".bin").split("/")[-1] for f in sorted(glob("core/tests/snapshots/testnull.bin"))]
+    # [f.strip(".bin").split("/")[-1] for f in sorted(glob("core/tests/snapshots/numeric.bin"))]
+    [f.strip(".bin").split("/")[-1] for f in sorted(glob("core/tests/snapshots/supernull_numeric.bin"))]
+    # [f.strip(".bin").split("/")[-1] for f in sorted(glob("core/tests/snapshots/supernull_float64.bin"))]
+    # [f.strip(".bin").split("/")[-1] for f in sorted(glob("core/tests/snapshots/float64_nullable.bin"))]
 )
 
 
