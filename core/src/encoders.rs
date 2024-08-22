@@ -4,9 +4,9 @@ use arrow_array::{self, Array, ArrowNativeTypeOp, OffsetSizeTrait};
 use arrow_schema::{DataType, Field, TimeUnit};
 use bytes::{BufMut, BytesMut};
 use enum_dispatch::enum_dispatch;
-use std::{any::type_name, convert::identity, sync::Arc};
 use std::fs::File;
 use std::io::Write;
+use std::{any::type_name, convert::identity, sync::Arc};
 
 use crate::error::ErrorKind;
 use crate::pg_schema::{Column, PostgresType, TypeSize};
@@ -115,7 +115,6 @@ macro_rules! impl_encode2 {
         }
     };
 }
-
 
 macro_rules! impl_encode_fallible {
     ($struct_name:ident, $field_size:expr, $transform:expr, $write:expr) => {
@@ -275,7 +274,7 @@ fn encode_postgres_numeric(valuex: i128, scale: u16) -> Vec<u8> {
         integer_part /= 10000;
     }
 
-    let weight= digits.len() - 1;
+    let weight = digits.len() - 1;
 
     let mut decimal_part = value.abs() % 10_i128.pow(scale as u32);
 
