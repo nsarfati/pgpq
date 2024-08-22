@@ -4,8 +4,6 @@ use arrow_array::{self, Array, ArrowNativeTypeOp, OffsetSizeTrait};
 use arrow_schema::{DataType, Field, TimeUnit};
 use bytes::{BufMut, BytesMut};
 use enum_dispatch::enum_dispatch;
-use std::fs::File;
-use std::io::Write;
 use std::{any::type_name, convert::identity, sync::Arc};
 
 use crate::error::ErrorKind;
@@ -100,9 +98,10 @@ macro_rules! impl_encode2 {
                 if self.arr.is_null(row) {
                     buf.put_i32(-1)
                 } else {
-                    buf.put_i32($field_size as i32);
                     let v = self.arr.value(row);
                     let tv = $transform(v);
+                    let size = $field_size(&tv);
+                    buf.put_i32(size as i32);
                     $write(buf, &tv);
                 }
                 Ok(())
@@ -110,7 +109,14 @@ macro_rules! impl_encode2 {
             fn size_hint(&self) -> Result<usize, ErrorKind> {
                 let null_count = self.arr.null_count();
                 let item_count = self.arr.len();
-                Ok((item_count - null_count) * $field_size + item_count)
+                if item_count > 0 {
+                    let example_v = self.arr.value(0);
+                    let example_tv = $transform(example_v);
+                    let example_size = $field_size(&example_tv); // Calcula el tamaño del ejemplo
+                    Ok((item_count - null_count) * example_size + item_count)
+                } else {
+                    Ok(0)
+                }
             }
         }
     };
@@ -260,8 +266,7 @@ impl_encode!(
     BufMut::put_f64
 );
 
-fn encode_postgres_numeric(valuex: i128, scale: u16) -> Vec<u8> {
-    let value: i128 = 987123899999;
+fn encode_postgres_numeric(value: i128, scale: u16) -> Vec<u8> {
     let mut buf = Vec::new();
 
     let sign: i16 = if value.is_negative() { 0x4000 } else { 0x0000 };
@@ -270,13 +275,13 @@ fn encode_postgres_numeric(valuex: i128, scale: u16) -> Vec<u8> {
 
     let mut integer_part = value.abs() / 10_i128.pow(scale as u32);
     while integer_part > 0 {
-        digits.insert(0, ((integer_part % 10000) as u16));
+        digits.insert(0, (integer_part % 10000) as u16);
         integer_part /= 10000;
     }
 
-    let weight = digits.len() - 1;
+    let weight = digits.len() as isize - 1;
 
-    let mut decimal_part = value.abs() % 10_i128.pow(scale as u32);
+    let decimal_part = value.abs() % 10_i128.pow(scale as u32);
 
     if decimal_part < 10000 {
         digits.push(decimal_part as u16);
@@ -303,7 +308,7 @@ pub struct Decimal128Encoder<'a> {
 }
 impl_encode2!(
     Decimal128Encoder,
-    0x0c, // TODO: Ver como obtener el len del resultado
+    |tv: &[u8]| tv.len(),
     |v| encode_postgres_numeric(v, 5),
     |buf: &mut BytesMut, bytes: &[u8]| buf.extend_from_slice(bytes)
 );
