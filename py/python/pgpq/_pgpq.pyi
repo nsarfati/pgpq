@@ -32,6 +32,9 @@ class Float4:
 class Float8:
     def ddl(self) -> str | None: ...
 
+class Numeric:
+    def ddl(self) -> str | None: ...
+
 class Date:
     def ddl(self) -> str | None: ...
 
@@ -126,6 +129,9 @@ class Float32EncoderBuilder:
     def __init__(self, field: pyarrow.Field) -> None: ...
 
 class Float64EncoderBuilder:
+    def __init__(self, field: pyarrow.Field) -> None: ...
+
+class Decimal128EncoderBuilder:
     def __init__(self, field: pyarrow.Field) -> None: ...
 
 class TimestampMicrosecondEncoderBuilder:
